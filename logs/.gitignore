@@ -1,0 +1,6 @@
+# Ignoruj wszystkie pliki logów
+*.txt
+*.log
+
+# Ale zachowaj ten katalog
+!.gitignore

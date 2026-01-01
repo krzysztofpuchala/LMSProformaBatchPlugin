@@ -1,0 +1,218 @@
+{extends file="layout.html"}
+{block name=title}{trans("LMS")}: {$layout.pagetitle|striphtml}{/block}
+{block name=module_content}
+
+<H1>{$layout.pagetitle}</H1>
+
+{* Komunikaty sukcesu/błędów *}
+{if $smarty.session.proformabatch_success}
+<div class="alert success">
+    {$smarty.session.proformabatch_success}
+</div>
+{$smarty.session.proformabatch_success = null}
+{/if}
+
+{if $smarty.session.proformabatch_errors}
+<div class="alert error">
+    <ul>
+    {foreach $smarty.session.proformabatch_errors as $error}
+        <li>{$error}</li>
+    {/foreach}
+    </ul>
+</div>
+{$smarty.session.proformabatch_errors = null}
+{/if}
+
+<FORM METHOD="POST" NAME="proformaform" id="proformaform">
+<INPUT type="submit" class="hiddenbtn">
+
+{* Filtry *}
+<TABLE class="lmsbox">
+<TR>
+    <TD colspan="9">
+        <B>{trans("Filter:")} </B>
+        <INPUT type="text" name="search" value="{$search}" size="10" {tip text="Enter month in format YYYY/MM" trigger="search"}>
+        {trans("Division")}:
+        <select size="1" name="divisionid">
+            <OPTION value="0">- {trans("all")} -</OPTION>
+            {foreach $divisions as $div}
+                <option value="{$div.id}"{if $div.id == $division} selected{/if}>{$div.label|escape}</option>
+            {/foreach}
+        </select>
+        <A href="javascript:document.proformaform.submit();">&raquo;&raquo;&raquo;</A>
+    </TD>
+</TR>
+</TABLE>
+
+{* Wspólne pola *}
+<TABLE class="lmsbox" style="margin-top: 10px;">
+<TR>
+    <TD colspan="9" style="background-color: #f0f0f0; padding: 10px;">
+        <B>{trans("Common fields for conversion:")}</B><br>
+        {trans("Payment time (days):")}
+        <INPUT type="text" name="common_paytime" id="common_paytime" value="14" size="5" {tip text="Payment deadline in days" trigger="common_paytime"}>
+        &nbsp;&nbsp;
+        {trans("Payment type:")}
+        <SELECT name="common_paytype" id="common_paytype" {tip text="Payment method" trigger="common_paytype"}>
+            {foreach $paytypes as $key => $paytype}
+                <OPTION value="{$key}"{if $key == 2} selected{/if}>{trans($paytype)}</OPTION>
+            {/foreach}
+        </SELECT>
+    </TD>
+</TR>
+</TABLE>
+
+{* Tabela faktur *}
+<TABLE class="lmsbox lms-ui-background-cycle" style="margin-top: 10px;">
+<COLGROUP>
+    <COL style="width: 1%">
+    <COL style="width: 5%">
+    <COL style="width: 8%">
+    <COL style="width: 8%">
+    <COL style="width: 8%">
+    <COL style="width: 30%">
+    <COL style="width: 8%">
+    <COL style="width: 20%">
+    <COL style="width: 10%">
+</COLGROUP>
+<THEAD>
+<TR>
+    <TD class="nobr">{trans("ID")}</TD>
+    <TD class="nobr">{trans("Date")}</TD>
+    <TD class="nobr">{trans("Number")}</TD>
+    <TD class="nobr">{trans("Value")}</TD>
+    <TD class="nobr">{trans("Status")}</TD>
+    <TD class="nobr">{trans("Customer")}</TD>
+    <TD class="nobr text-right">{trans("Balance")}</TD>
+    <TD class="nobr">{trans("Notes")}</TD>
+    <TD class="nobr text-right">{trans("Select")}</TD>
+</TR>
+</THEAD>
+<TBODY class="lms-ui-multi-check">
+{foreach $proformalist as $proforma}
+{assign var=proformaid value=$proforma.id}
+<TR class="highlight{if $proforma.closed} blend{/if}"
+    data-balance="{$proforma.customer_balance}">
+    <TD>{$proforma.id|string_format:"%06d"}</TD>
+    <TD class="nobr">{$proforma.cdate|date_format:"%Y/%m/%d"}</TD>
+    <TD class="text-right nobr">{$proforma.fullnumber}</TD>
+    <TD class="text-right nobr">{moneyf($proforma.value, $proforma.currency)}</TD>
+    <TD class="text-center">
+        {if $proforma.has_vat_invoice}
+            <span style="color: green;" {tip text="Already converted to invoice ID: {$proforma.has_vat_invoice}" trigger="status_{$proforma.id}"}>
+                {trans("Converted")}
+            </span>
+        {elseif $proforma.closed}
+            <span style="color: orange;">{trans("Closed")}</span>
+        {else}
+            <span>{trans("Open")}</span>
+        {/if}
+    </TD>
+    <TD>
+        <A HREF="?m=customerinfo&id={$proforma.customerid}">
+            {$proforma.name}, {$proforma.address}, {$proforma.zip} {$proforma.city}
+        </A>
+    </TD>
+    <TD class="text-right nobr"
+        style="{if $proforma.customer_balance >= 0}color: green;{else}color: red;{/if}">
+        {moneyf($proforma.customer_balance)}
+    </TD>
+    <TD>
+        {if $proforma.has_vat_invoice}
+            <A HREF="?m=invoice&id={$proforma.has_vat_invoice}" target="_blank">
+                {trans("View invoice")}
+            </A>
+        {else}
+            -
+        {/if}
+    </TD>
+    <TD class="text-right">
+        {if !$proforma.has_vat_invoice}
+            <INPUT TYPE="checkbox" NAME="marks[{$proforma.id}]" VALUE="{$proforma.id}"
+                   class="lms-ui-multi-check"{if $marks.$proformaid} checked{/if}>
+        {else}
+            <span style="color: #ccc;">{trans("n/a")}</span>
+        {/if}
+    </TD>
+</TR>
+{foreachelse}
+<TR>
+    <TD class="empty-table" COLSPAN="9">
+        <P>{trans("No proforma invoices found for selected month.")}</P>
+    </TD>
+</TR>
+{/foreach}
+</TBODY>
+<TFOOT>
+<TR>
+    <TD COLSPAN="9">
+        <TABLE WIDTH="100%">
+        <TR>
+            <TD class="text-left">
+                {button icon="transform" label="Convert selected" id="convert-button"}
+                {button icon="check" label="Select all" id="select-all-button"}
+                {button icon="check" label="Select balance >= 0" id="select-positive-balance-button"}
+            </TD>
+            <TD class="text-right">
+                <label>
+                    {trans("Check All")}
+                    <INPUT TYPE="checkbox" NAME="allbox" class="lms-ui-multi-check-all" VALUE="1">
+                </label>
+            </TD>
+        </TR>
+        </TABLE>
+    </TD>
+</TR>
+</TFOOT>
+</TABLE>
+</FORM>
+
+<script>
+$(function() {
+    // Przycisk konwersji
+    $('#convert-button').click(function() {
+        var checked = $('input.lms-ui-multi-check:checked');
+        if (!checked.length) {
+            alertDialog($t('No invoices selected!'), this);
+            return false;
+        }
+
+        var paytime = $('#common_paytime').val();
+        var paytype = $('#common_paytype').val();
+
+        if (!paytime || paytime < 0) {
+            alertDialog($t('Payment time cannot be negative!'), this);
+            $('#common_paytime').focus();
+            return false;
+        }
+
+        confirmDialog(
+            $t('Convert $a selected proforma invoices to VAT invoices?', checked.length),
+            this
+        ).done(function() {
+            document.proformaform.action = "?m=proformabatchconvert";
+            document.proformaform.submit();
+        });
+
+        return false;
+    });
+
+    // Zaznacz wszystkie
+    $('#select-all-button').click(function() {
+        $('input.lms-ui-multi-check').prop('checked', true);
+        return false;
+    });
+
+    // Zaznacz tylko saldo >= 0
+    $('#select-positive-balance-button').click(function() {
+        $('input.lms-ui-multi-check').each(function() {
+            var row = $(this).closest('tr');
+            var balance = parseFloat(row.attr('data-balance'));
+            $(this).prop('checked', balance >= 0);
+        });
+        return false;
+    });
+});
+</script>
+
+{/block}
